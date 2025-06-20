@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Amin OS</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter for a clean, modern look -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Custom styles to define the OS look and feel, overriding or extending Tailwind */
+        body {
+            font-family: 'Inter', sans-serif;
+            overflow: hidden; /* Prevent body scroll, desktop will manage its own */
+            margin: 0;
+            padding: 0;
+            background-color: #0f172a; /* Fallback background for body */
+        }
+
+        /* Desktop wallpaper style */
+        #desktop {
+            background-image: var(--desktop-wallpaper, url('https://placehold.co/1920x1080/0d1117/c9d1d9?text=Amin+OS')); /* Use CSS variable for wallpaper */
+            background-size: cover;
+            background-position: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            position: relative; /* Needed for absolute positioning of windows */
+            display: flex; /* Flex container to fill available space */
+            flex-direction: column;
+        }
+
+        /* Desktop icons container */
+        #desktop-icons {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* Space between icons */
+            z-index: 500; /* Below windows but above background */
+        }
+
+        .desktop-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.75rem;
+            border-radius: 0.75rem; /* Rounded corners for icons */
+            color: white;
+            font-size: 0.8rem;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+
+        .desktop-icon:hover {
+            background-color: rgba(51, 65, 85, 0.7); /* Hover effect */
+            transform: translateY(-2px); /* Slight lift on hover */
+        }
+
+        .desktop-icon svg {
+            width: 36px; /* Larger icon size */
+            height: 36px;
+            margin-bottom: 0.5rem;
+        }
+
+
+        /* Styles for draggable and resizable application windows */
+        .app-window {
+            min-height: 200px;
+            min-width: 350px;
+            position: absolute; /* Allows dragging anywhere on the desktop */
+            border-radius: 0.75rem; /* More rounded corners */
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1); /* Deeper shadow */
+            border: 1px solid rgba(255, 255, 255, 0.15); /* Slightly more visible border */
+            background-color: rgba(30, 41, 59, 0.85); /* Slightly less transparent background */
+            backdrop-filter: blur(12px); /* Stronger blur effect for frosted glass */
+            -webkit-backdrop-filter: blur(12px);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            resize: both; /* Allows user to resize the window */
+            overflow: hidden; /* Hide content overflow within the window */
+            transition: all 0.1s ease-out; /* Smooth transition for maximizing/restoring */
+            /* Added for smoother dragging perception */
+            will-change: top, left, width, height;
+        }
+
+        .window-header {
+            cursor: grab; /* Indicates draggable area */
+            user-select: none; /* Prevent text selection during drag */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem; /* Increased padding */
+            background-color: rgba(51, 65, 85, 0.95); /* Nearly opaque header */
+            border-top-left-radius: 0.75rem;
+            border-top-right-radius: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1); /* Separator line */
+        }
+
+        .window-header.grabbing {
+            cursor: grabbing; /* Cursor feedback when dragging */
+        }
+
+        .window-content {
+            flex-grow: 1; /* Occupy remaining vertical space */
+            padding: 0.75rem; /* Increased padding */
+            overflow: auto; /* Enable scrolling for content if it overflows */
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Terminal specific styles */
+        .terminal-output {
+            white-space: pre-wrap; /* Preserve whitespace and wrap text */
+            word-break: break-all; /* Break long words */
+            flex-grow: 1;
+            font-family: 'Consolas', 'Monaco', 'Lucida Console', monospace; /* Monospace font for terminal */
+            font-size: 0.9rem;
+            line-height: 1.4;
+            color: #e5e7eb; /* Light gray text */
+        }
+
+        .terminal-input-line {
+            display: flex;
+            align-items: center;
+            padding-top: 0.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05); /* Subtle line above input */
+        }
+
+        .terminal-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            width: 100%;
+            color: #e5e7eb; /* Light gray text */
+            font-family: 'Consolas', 'Monaco', 'Lucida Console', monospace;
+            font-size: 0.9rem;
+        }
+
+        /* File Manager styles */
+        .file-manager-content {
+            display: flex;
+            height: 100%;
+        }
+        .file-manager-sidebar {
+            width: 180px; /* Wider sidebar */
+            flex-shrink: 0;
+            border-right: 1px solid #4a5568;
+            padding: 0.75rem; /* Increased padding */
+            background-color: rgba(30, 41, 59, 0.7); /* Slightly darker sidebar */
+        }
+        .file-manager-main {
+            flex-grow: 1;
+            padding: 0.75rem; /* Increased padding */
+            position: relative; /* For context menu positioning */
+        }
+        .dir-item {
+            padding: 0.5rem;
+            border-radius: 0.375rem; /* Slightly rounded for list items */
+            margin-bottom: 0.25rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        .dir-item.font-bold {
+            background-color: #334155; /* Highlight for active directory */
+        }
+        .dir-item:hover:not(.font-bold) {
+            background-color: #1e293b; /* Darker hover for non-active */
+        }
+        .file-item { /* New class for files in main view */
+            padding: 0.5rem;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s ease;
+        }
+        .file-item:hover {
+            background-color: #1e293b;
+        }
+
+
+        /* Browser specific styles */
+        .browser-content {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .browser-iframe {
+            flex-grow: 1;
+            border: none;
+            background-color: white; /* Background for the iframe content area */
+            border-radius: 0.25rem; /* Small radius for iframe */
+        }
+
+        /* Text Editor specific styles */
+        .text-editor-textarea {
+            flex-grow: 1;
+            width: 100%;
+            padding: 0.5rem;
+            background-color: #1a202c; /* Dark background for editor */
+            border: 1px solid #4a5568;
+            border-radius: 0.375rem;
+            color: #e2e8f0;
+            font-family: 'Consolas', 'Monaco', 'Lucida Console', monospace;
+            font-size: 0.9rem;
+            resize: none; /* Disable default textarea resize handle */
+            outline: none;
+        }
+
+        /* Calculator styles */
+        .calculator-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            padding: 1rem;
+            background-color: #1a202c;
+            border-radius: 0.5rem;
+        }
+        .calculator-display {
+            grid-column: span 4;
+            background-color: #2d3748;
+            color: #e2e8f0;
+            font-size: 2.5rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: right;
+            margin-bottom: 0.5rem;
+            overflow-x: auto; /* Allow horizontal scroll for long numbers */
+        }
+        .calculator-button {
+            padding: 1rem;
+            font-size: 1.5rem;
+            border-radius: 0.5rem;
+            background-color: #4a5568;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .calculator-button:hover {
+            background-color: #636b77;
+        }
+        .calculator-button.operator {
+            background-color: #3182ce;
+        }
+        .calculator-button.operator:hover {
+            background-color: #2c5282;
+        }
+        .calculator-button.equals {
+            background-color: #e53e3e;
+        }
+        .calculator-button.equals:hover {
+            background-color: #c53030;
+        }
+        .calculator-button.clear {
+            background-color: #d69e2e;
+        }
+        .calculator-button.clear:hover {
+            background-color: #b7791f;
+        }
+
+        /* Settings Panel styles */
+        .settings-content {
+            padding: 1rem;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .settings-section {
+            background-color: rgba(51, 65, 85, 0.7);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .settings-input {
+            width: 100%;
+            padding: 0.5rem;
+            background-color: #1a202c;
+            border: 1px solid #4a5568;
+            border-radius: 0.375rem;
+            color: #e2e8f0;
+            outline: none;
+        }
+        .settings-button {
+            padding: 0.5rem 1rem;
+            background-color: #4299e1;
+            color: white;
+            border-radius: 0.375rem;
+            transition: background-color 0.2s ease;
+        }
+        .settings-button:hover {
+            background-color: #3182ce;
+        }
+
+        /* Context Menu Styles */
+        #file-context-menu {
+            position: fixed;
+            background-color: rgba(51, 65, 85, 0.98);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            z-index: 2000; /* Higher than windows */
+            padding: 0.5rem 0;
+            min-width: 150px;
+            display: none; /* Hidden by default */
+        }
+        .context-menu-item {
+            padding: 0.6rem 1rem;
+            color: white;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.15s ease;
+        }
+        .context-menu-item:hover {
+            background-color: #3182ce; /* Highlight on hover */
+        }
+        .context-menu-item:first-child {
+            border-top-left-radius: 0.5rem;
+            border-top-right-radius: 0.5rem;
+        }
+        .context-menu-item:last-child {
+            border-bottom-left-radius: 0.5rem;
+            border-bottom-right-radius: 0.5rem;
+        }
+
+    </style>
+</head>
+<body class="bg-slate-900">
+
+    <!-- Desktop Environment: This is the main canvas where windows will appear -->
+    <div id="desktop">
+        <!-- Desktop Icons -->
+        <div id="desktop-icons">
+            <div id="desktop-browser-icon" class="desktop-icon" title="Amin Browser">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                <span>Browser</span>
+            </div>
+            <div id="desktop-terminal-icon" class="desktop-icon" title="Terminal">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+                <span>Terminal</span>
+            </div>
+            <div id="desktop-files-icon" class="desktop-icon" title="File Explorer">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 = 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span>Files</span>
+            </div>
+            <div id="desktop-editor-icon" class="desktop-icon" title="Text Editor">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                <span>Editor</span>
+            </div>
+            <div id="desktop-calc-icon" class="desktop-icon" title="Calculator">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="16" y2="10"></line><line x1="8" y1="14" x2="16" y2="14"></line><line x1="8" y1="18" x2="16" y2="18"></line></svg>
+                <span>Calc</span>
+            </div>
+            <div id="desktop-settings-icon" class="desktop-icon" title="Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1.51-1V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 .5 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                <span>Settings</span>
+            </div>
+        </div>
+        <!-- Application Windows will be injected here by JavaScript -->
+    </div>
+
+    <!-- Taskbar: Fixed at the bottom of the screen, always visible -->
+    <div id="taskbar" class="absolute bottom-0 left-0 w-full bg-slate-800/80 backdrop-blur-sm h-14 flex items-center justify-center px-6 z-[1000] border-t border-slate-700">
+        <div class="flex items-center gap-6">
+            <!-- App Icons for launching applications -->
+            <button id="taskbar-browser-icon" class="app-icon p-3 rounded-xl hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="Amin Browser">
+                <!-- Browser Icon (World) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            </button>
+            <button id="taskbar-terminal-icon" class="app-icon p-3 rounded-xl hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="Terminal">
+                <!-- Terminal Icon (Chevron right, line) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>
+            </button>
+            <button id="taskbar-files-icon" class="app-icon p-3 rounded-xl hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="File Explorer">
+                <!-- File Explorer Icon (Folder) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            </button>
+            <button id="taskbar-editor-icon" class="app-icon p-3 rounded-xl hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="Text Editor">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+            </button>
+            <button id="taskbar-calc-icon" class="app-icon p-3 rounded-xl hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="Calculator">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="16" y2="10"></line><line x1="8" y1="14" x2="16" y2="14"></line><line x1="8" y1="18" x2="16" y2="18"></line></svg>
+            </button>
+            <button id="taskbar-settings-icon" class="app-icon p-3 rounded-xl hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="Settings">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0-.33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1.51-1V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 .5 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+        </div>
+        <div class="flex-grow"></div> <!-- Pushes clock to the right -->
+        <div id="clock" class="text-white text-lg font-medium pr-6"></div> <!-- Digital clock display -->
+    </div>
+
+    <!-- Window Templates: Hidden HTML structure used as a blueprint for new windows -->
+    <template id="window-template">
+        <div class="app-window hidden" style="width: 640px; height: 480px;">
+            <div class="window-header">
+                <span class="window-title font-semibold text-lg"></span>
+                <div class="flex items-center gap-2">
+                    <!-- Minimize Button -->
+                    <button class="minimize-btn w-3.5 h-3.5 bg-yellow-400 rounded-full hover:bg-yellow-500 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-300"></button>
+                    <!-- Maximize Button -->
+                    <button class="maximize-btn w-3.5 h-3.5 bg-green-400 rounded-full hover:bg-green-500 transition-colors focus:outline-none focus:ring-2 focus:ring-green-300"></button>
+                    <!-- Close Button -->
+                    <button class="close-btn w-3.5 h-3.5 bg-red-400 rounded-full hover:bg-red-500 transition-colors focus:outline-none focus:ring-2 focus:ring-red-300"></button>
+                </div>
+            </div>
+            <div class="window-content">
+                <!-- App-specific content will be injected here -->
+            </div>
+        </div>
+    </template>
+
+    <!-- File Explorer Context Menu -->
+    <div id="file-context-menu" class="hidden">
+        <!-- Menu items will be populated by JavaScript -->
+    </div>
+
+    <script>
+        // Ensure all DOM content is loaded before running scripts
+        document.addEventListener('DOMContentLoaded', () => {
+            const desktop = document.getElementById('desktop');
+            const taskbar = document.getElementById('taskbar');
+            const clock = document.getElementById('clock');
+            const windowTemplate = document.getElementById('window-template');
+            const fileContextMenu = document.getElementById('file-context-menu');
+
+            // Keeps track of the z-index for layering windows, ensuring active window is on top
+            let activeZIndex = 100;
+            // Stores references to open window elements by their ID
+            const openWindows = {};
+
+            // --- Local Storage Keys ---
+            const LS_FILE_SYSTEM_KEY = 'aminOS_fileSystem';
+            const LS_WALLPAPER_KEY = 'aminOS_wallpaper';
+            const LS_FILE_CONTENT_PREFIX = 'aminOS_file_content_';
+
+            // --- File System (Mock) and Persistence ---
+            // Load file system from localStorage or use a default
+            let fileSystem = JSON.parse(localStorage.getItem(LS_FILE_SYSTEM_KEY)) || {
+                'Desktop': ['Welcome.txt', 'screenshot.png'],
+                'Documents': ['Project Proposal.docx', 'Meeting Notes.txt', 'budget.xlsx'],
+                'Downloads': ['installer.exe', 'document.pdf']
+            };
+
+            // Initialize default text file content if not already present in local storage
+            function initializeDefaultFileContent() {
+                const defaultWelcomeText = "Welcome to Amin OS!\n\nThis is a simple text file. You can open and save files using the Text Editor app. Type 'help' in the terminal for more commands.";
+                if (localStorage.getItem(LS_FILE_CONTENT_PREFIX + 'Welcome.txt') === null) {
+                    localStorage.setItem(LS_FILE_CONTENT_PREFIX + 'Welcome.txt', defaultWelcomeText);
+                }
+            }
+            initializeDefaultFileContent(); // Call this once on startup
+
+            // Save file system to localStorage
+            function saveFileSystem() {
+                localStorage.setItem(LS_FILE_SYSTEM_KEY, JSON.stringify(fileSystem));
+                updateAllFileManagerWindows(); // Call this whenever fileSystem changes
+            }
+
+            // Function to update all open File Manager windows
+            function updateAllFileManagerWindows() {
+                if (openWindows['files']) {
+                    const fileManagerWin = openWindows['files'];
+                    const sidebar = fileManagerWin.querySelector('.file-manager-sidebar');
+                    const main = fileManagerWin.querySelector('.file-manager-main');
+                    // Get the current active directory from the file manager instance
+                    const currentDirInFileManager = fileManagerWin.currentDir || 'Desktop';
+                    setupFileManagerDisplay(sidebar, main, currentDirInFileManager);
+                }
+            }
+
+
+            // --- Wallpaper Persistence ---
+            // Load wallpaper from localStorage or use default
+            let currentWallpaper = localStorage.getItem(LS_WALLPAPER_KEY) || '';
+            if (currentWallpaper) {
+                desktop.style.setProperty('--desktop-wallpaper', `url('${currentWallpaper}')`);
+            }
+
+            // --- Clock Functionality ---
+            // Updates the digital clock in the taskbar
+            function updateClock() {
+                const now = new Date();
+                // Format time to 2-digit hour and minute
+                clock.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+            // Update clock every second
+            setInterval(updateClock, 1000);
+            // Initial call to display clock immediately
+            updateClock();
+
+            // --- Window Management Functions ---
+
+            /**
+             * Creates and displays a new application window.
+             * If the window already exists and is open, it brings it to the front.
+             * If minimized, it restores and brings it to the front.
+             * @param {string} id - Unique identifier for the window (e.g., 'browser', 'terminal').
+             * @param {string} title - Title to display in the window header.
+             * @param {string} content - HTML string for the window's main content area.
+             * @returns {HTMLElement} The created or existing window element.
+             */
+            function createWindow(id, title, content) {
+                // Check if the window already exists
+                if (openWindows[id]) {
+                    const win = openWindows[id];
+                    // If window is hidden (minimized), show it
+                    if (win.classList.contains('hidden')) {
+                        win.classList.remove('hidden');
+                    }
+                    // Bring existing window to front
+                    bringToFront(win);
+                    return win; // Return the existing window
+                }
+
+                // Clone the window template to create a new window element
+                const windowEl = windowTemplate.content.firstElementChild.cloneNode(true);
+                windowEl.id = `window-${id}`; // Set unique ID for the new window
+                windowEl.querySelector('.window-title').textContent = title; // Set window title
+                windowEl.querySelector('.window-content').innerHTML = content; // Insert app-specific content
+
+                // Calculate initial position to stack new windows slightly offset
+                const existingWindows = Object.keys(openWindows).length;
+                windowEl.style.top = `${50 + (existingWindows % 5) * 30}px`; // Limit stacking overlap
+                windowEl.style.left = `${100 + (existingWindows % 5) * 30}px`; // Limit stacking overlap
+
+                desktop.appendChild(windowEl); // Add the new window to the desktop
+                openWindows[id] = windowEl; // Store reference to the window
+
+                setupWindow(windowEl); // Apply basic window functionality (drag, min/max/close)
+                windowEl.classList.remove('hidden'); // Ensure window is visible
+                bringToFront(windowEl); // Bring the new window to the front
+
+                // Call specific setup functions based on the app ID
+                if (id === 'browser') setupBrowser(windowEl);
+                if (id === 'terminal') setupTerminal(windowEl);
+                if (id === 'files') setupFileManager(windowEl);
+                if (id === 'editor') setupTextEditor(windowEl);
+                if (id === 'calculator') setupCalculator(windowEl);
+                if (id === 'settings') setupSettings(windowEl);
+
+                return windowEl; // Return the newly created window
+            }
+
+            /**
+             * Sets up common functionality for a window: dragging, resizing, and control buttons.
+             * @param {HTMLElement} win - The window element to set up.
+             */
+            function setupWindow(win) {
+                const header = win.querySelector('.window-header');
+                const closeBtn = win.querySelector('.close-btn');
+                const minimizeBtn = win.querySelector('.minimize-btn');
+                const maximizeBtn = win.querySelector('.maximize-btn');
+
+                let isDragging = false;
+                let offset = { x: 0, y: 0 }; // Offset for dragging calculation
+                let originalState = {}; // Stores size/position before maximizing
+
+                // --- Dragging functionality ---
+                header.addEventListener('mousedown', (e) => {
+                    // Prevent dragging if a button is clicked
+                    if (e.target.tagName === 'BUTTON') return;
+                    isDragging = true;
+                    // Calculate initial offset from mouse position to window corner
+                    offset.x = e.clientX - win.offsetLeft;
+                    offset.y = e.clientY - win.offsetTop;
+                    bringToFront(win); // Bring to front when dragging starts
+                    header.classList.add('grabbing'); // Change cursor to indicate dragging
+                });
+
+                document.addEventListener('mousemove', (e) => {
+                    if (!isDragging) return;
+                    e.preventDefault(); // Prevent text selection while dragging
+                    // Update window position based on mouse movement
+                    win.style.left = `${e.clientX - offset.x}px`;
+                    win.style.top = `${e.clientY - offset.y}px`;
+                });
+
+                document.addEventListener('mouseup', () => {
+                    isDragging = false;
+                    header.classList.remove('grabbing'); // Restore cursor
+                });
+
+                // Bring window to front when clicked anywhere on it
+                win.addEventListener('mousedown', () => bringToFront(win));
+
+                // --- Control Button functionality ---
+                closeBtn.addEventListener('click', () => {
+                    // Remove window from openWindows tracking and from DOM
+                    delete openWindows[win.id.replace('window-', '')];
+                    win.remove();
+                });
+
+                minimizeBtn.addEventListener('click', () => {
+                    win.classList.add('hidden'); // Hide the window
+                });
+
+                maximizeBtn.addEventListener('click', () => {
+                    if (win.classList.contains('maximized')) {
+                        // Restore from maximized state
+                        win.classList.remove('maximized');
+                        win.style.width = originalState.width;
+                        win.style.height = originalState.height;
+                        win.style.top = originalState.top;
+                        win.style.left = originalState.left;
+                        win.style.transform = 'none'; // Clear any potential transforms
+                    } else {
+                        // Maximize the window
+                        originalState = {
+                            width: win.style.width,
+                            height: win.style.height,
+                            top: win.style.top,
+                            left: win.style.left
+                        };
+                        win.classList.add('maximized');
+                        win.style.width = '100%';
+                        // Calculate height considering the taskbar at the bottom
+                        win.style.height = `calc(100% - ${taskbar.offsetHeight}px)`;
+                        win.style.top = '0';
+                        win.style.left = '0';
+                        win.style.transform = 'none'; // Ensure no weird transforms interfere
+                    }
+                });
+            }
+
+            /**
+             * Brings a window to the front by updating its z-index.
+             * @param {HTMLElement} win - The window element to bring to front.
+             */
+            function bringToFront(win) {
+                win.style.zIndex = ++activeZIndex; // Increment z-index and apply
+            }
+
+            // --- App Launchers (Taskbar & Desktop Icons) ---
+            document.getElementById('taskbar-browser-icon').addEventListener('click', () => createWindow('browser', 'Amin Browser', browserContent));
+            document.getElementById('desktop-browser-icon').addEventListener('click', () => createWindow('browser', 'Amin Browser', browserContent));
+
+            document.getElementById('taskbar-terminal-icon').addEventListener('click', () => createWindow('terminal', 'Terminal', terminalContent));
+            document.getElementById('desktop-terminal-icon').addEventListener('click', () => createWindow('terminal', 'Terminal', terminalContent));
+
+            document.getElementById('taskbar-files-icon').addEventListener('click', () => createWindow('files', 'File Explorer', fileManagerContent));
+            document.getElementById('desktop-files-icon').addEventListener('click', () => createWindow('files', 'File Explorer', fileManagerContent));
+
+            document.getElementById('taskbar-editor-icon').addEventListener('click', () => createWindow('editor', 'Text Editor', textEditorContent));
+            document.getElementById('desktop-editor-icon').addEventListener('click', () => createWindow('editor', 'Text Editor', textEditorContent));
+
+            document.getElementById('taskbar-calc-icon').addEventListener('click', () => createWindow('calculator', 'Calculator', calculatorContent));
+            document.getElementById('desktop-calc-icon').addEventListener('click', () => createWindow('calculator', 'Calculator', calculatorContent));
+
+            document.getElementById('taskbar-settings-icon').addEventListener('click', () => createWindow('settings', 'Settings', settingsContent));
+            document.getElementById('desktop-settings-icon').addEventListener('click', () => createWindow('settings', 'Settings', settingsContent));
+
+
+            // --- Application Definitions & Setup Functions ---
+
+            // 1. Browser Application
+            const browserContent = `
+                <div class="browser-content">
+                    <div class="flex items-center p-2 bg-slate-700 rounded-t-lg flex-shrink-0 border-b border-slate-600">
+                        <input type="text" class="browser-url flex-grow bg-slate-800 text-white p-2 rounded-md outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter URL or search Google">
+                        <button class="browser-go ml-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium transition-colors">Go</button>
+                    </div>
+                    <iframe class="browser-iframe mt-2"></iframe>
+                    <p class="text-xs text-gray-400 p-2 flex-shrink-0">Note: Searches open in a new tab. Some sites will not load directly in the frame due to security policies.</p>
+                </div>
+            `;
+
+            /**
+             * Sets up the functionality for the Browser application.
+             * @param {HTMLElement} win - The browser window element.
+             */
+            function setupBrowser(win) {
+                const urlInput = win.querySelector('.browser-url');
+                const goBtn = win.querySelector('.browser-go');
+                const iframe = win.querySelector('.browser-iframe');
+
+                const navigate = () => {
+                    let url = urlInput.value.trim();
+                    if (!url) return;
+
+                    let isSearch = false;
+                    // Check if it's a URL or a search term
+                    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                        if (url.includes('.') && !url.includes(' ')) {
+                            // Looks like a URL (e.g., example.com)
+                            url = 'https://' + url;
+                        } else {
+                            // It's a search term
+                            isSearch = true;
+                            // Use Google search, which will open in a new tab
+                            url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+                        }
+                    }
+
+                    if (isSearch) {
+                        // Open search results in a new browser tab
+                        window.open(url, '_blank');
+                        // Clear the input and the iframe for a better user experience
+                        urlInput.value = '';
+                        iframe.src = 'about:blank'; // Clears the iframe content
+                    } else {
+                        // Try to load other websites in the iframe
+                        iframe.src = url;
+                    }
+                };
+
+                goBtn.addEventListener('click', navigate);
+                urlInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') navigate();
+                });
+            }
+
+            // 2. Terminal Application
+            const terminalContent = `
+                <div class="terminal-output h-full overflow-y-auto p-3 text-sm font-mono flex-grow">
+                    <div>Welcome to Amin OS Terminal. Type 'help' for commands.</div>
+                </div>
+                <div class="terminal-input-line p-2 border-t border-slate-600">
+                    <span class="text-green-400 mr-2 font-bold">&gt;</span>
+                    <input type="text" class="terminal-input" autocomplete="off" />
+                </div>
+            `;
+
+            /**
+             * Sets up the functionality for the Terminal application.
+             * @param {HTMLElement} win - The terminal window element.
+             */
+            function setupTerminal(win) {
+                const output = win.querySelector('.terminal-output');
+                const input = win.querySelector('.terminal-input');
+                let commandHistory = [];
+                let historyIndex = -1; // -1 means no history item is currently selected
+
+                // Focus input when terminal window gains focus
+                win.addEventListener('focus', () => {
+                    input.focus();
+                });
+                // Initial focus when opened
+                setTimeout(() => input.focus(), 0);
+
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        const command = input.value.trim();
+                        if (!command) return;
+
+                        // Add command to history and reset index
+                        commandHistory.push(command);
+                        historyIndex = commandHistory.length;
+
+                        const args = command.split(' ').slice(1);
+                        const cmd = command.split(' ')[0].toLowerCase();
+
+                        // Add the command typed by the user to the output
+                        output.innerHTML += `<div><span class="text-green-400 font-bold">&gt;</span> ${command}</div>`;
+
+                        // Simple command parsing and execution
+                        switch (cmd) {
+                            case 'help':
+                                output.innerHTML += `<div>Available commands: <span class="text-blue-300">help</span>, <span class="text-blue-300">clear</span>, <span class="text-blue-300">echo</span>, <span class="text-blue-300">date</span>, <span class="text-blue-300">ls</span>, <span class="text-blue-300">pwd</span>, <span class="text-blue-300">mkdir</span> &lt;dir&gt;, <span class="text-blue-300">rm</span> &lt;file/dir&gt;, <span class="text-blue-300">cat</span> &lt;file&gt;</div>`;
+                                break;
+                            case 'clear':
+                                output.innerHTML = ''; // Clear all previous output
+                                break;
+                            case 'echo':
+                                output.innerHTML += `<div>${args.join(' ')}</div>`;
+                                break;
+                            case 'date':
+                                output.innerHTML += `<div>${new Date().toLocaleString()}</div>`;
+                                break;
+                            case 'ls':
+                                output.innerHTML += `<div>-- Directories --</div>`;
+                                output.innerHTML += `<div>${Object.keys(fileSystem).join(' &nbsp; ')}</div>`;
+                                output.innerHTML += `<div>-- Files in Desktop --</div>`;
+                                if (fileSystem['Desktop'] && fileSystem['Desktop'].length > 0) {
+                                    output.innerHTML += `<div>${fileSystem['Desktop'].join(' &nbsp; ')}</div>`;
+                                } else {
+                                    output.innerHTML += `<div>(Empty)</div>`;
+                                }
+                                break;
+                            case 'pwd':
+                                output.innerHTML += `<div>/home/user</div>`;
+                                break;
+                            case 'mkdir':
+                                if (args.length > 0) {
+                                    const newDir = args[0];
+                                    if (!fileSystem[newDir]) {
+                                        fileSystem[newDir] = []; // Create an empty directory
+                                        output.innerHTML += `<div>Directory '${newDir}' created.</div>`;
+                                        saveFileSystem(); // Save changes and trigger FM update
+                                    } else {
+                                        output.innerHTML += `<div class="text-yellow-400">Directory '${newDir}' already exists.</div>`;
+                                    }
+                                } else {
+                                    output.innerHTML += `<div class="text-red-400">Usage: mkdir &lt;directory_name&gt;</div>`;
+                                }
+                                break;
+                            case 'rm':
+                                if (args.length > 0) {
+                                    const target = args[0];
+                                    let removed = false;
+                                    // Check if it's a directory
+                                    if (fileSystem[target] !== undefined) { // Use undefined check
+                                        if (Array.isArray(fileSystem[target]) && fileSystem[target].length === 0) {
+                                            delete fileSystem[target];
+                                            output.innerHTML += `<div>Directory '${target}' removed.</div>`;
+                                            removed = true;
+                                            saveFileSystem(); // Save changes and trigger FM update
+                                        } else {
+                                            output.innerHTML += `<div class="text-yellow-400">Directory '${target}' is not empty or is not a directory.</div>`;
+                                        }
+                                    } else {
+                                        // Check if it's a file in Desktop (for simplicity, only allow removing from Desktop for now)
+                                        const desktopFiles = fileSystem['Desktop'];
+                                        if (desktopFiles && desktopFiles.includes(target)) {
+                                            fileSystem['Desktop'] = desktopFiles.filter(f => f !== target);
+                                            // Also remove its content from local storage
+                                            localStorage.removeItem(LS_FILE_CONTENT_PREFIX + target);
+                                            output.innerHTML += `<div>File '${target}' removed from Desktop.</div>`;
+                                            removed = true;
+                                            saveFileSystem(); // Save changes and trigger FM update
+                                        }
+                                    }
+                                    if (!removed) {
+                                        output.innerHTML += `<div class="text-yellow-400">No such file or directory or cannot remove non-empty directory: ${target}</div>`;
+                                    }
+                                } else {
+                                    output.innerHTML += `<div class="text-red-400">Usage: rm &lt;file_or_directory_name&gt;</div>`;
+                                }
+                                break;
+                            case 'cat': // View file content
+                                if (args.length > 0) {
+                                    const fileName = args[0];
+                                    const filePath = LS_FILE_CONTENT_PREFIX + fileName;
+                                    const content = localStorage.getItem(filePath);
+                                    if (content !== null) {
+                                        output.innerHTML += `<div class="text-gray-300">--- Start of '${fileName}' ---</div>`;
+                                        output.innerHTML += `<div>${content}</div>`;
+                                        output.innerHTML += `<div class="text-gray-300">--- End of '${fileName}' ---</div>`;
+                                    } else {
+                                        output.innerHTML += `<div class="text-yellow-400">File not found or empty: '${fileName}'</div>`;
+                                    }
+                                } else {
+                                    output.innerHTML += `<div class="text-red-400">Usage: cat &lt;file_name&gt;</div>`;
+                                }
+                                break;
+                            default:
+                                output.innerHTML += `<div class="text-red-400">Command not found: ${command}</div>`;
+                        }
+
+                        input.value = ''; // Clear the input field
+                        output.scrollTop = output.scrollHeight; // Scroll to the bottom of the output
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault(); // Prevent cursor from moving in input
+                        if (commandHistory.length > 0 && historyIndex > 0) {
+                            historyIndex--;
+                            input.value = commandHistory[historyIndex];
+                        } else if (commandHistory.length > 0 && historyIndex === -1) {
+                            historyIndex = commandHistory.length - 1; // Go to last command if no selection
+                            input.value = commandHistory[historyIndex];
+                        }
+                    } else if (e.key === 'ArrowDown') {
+                        e.preventDefault(); // Prevent cursor from moving in input
+                        if (historyIndex < commandHistory.length - 1) {
+                            historyIndex++;
+                            input.value = commandHistory[historyIndex];
+                        } else if (historyIndex === commandHistory.length - 1) {
+                            historyIndex = commandHistory.length; // Move past last command
+                            input.value = ''; // Clear input if at end of history
+                        }
+                    }
+                });
+            }
+
+            // 3. File Manager Application
+            const fileManagerContent = `
+                <div class="file-manager-content text-sm">
+                    <div class="file-manager-sidebar">
+                        <!-- Directories will be dynamically added here -->
+                    </div>
+                    <div class="file-manager-main p-3"></div>
+                </div>
+            `;
+
+            /**
+             * Sets up the functionality for the File Manager application.
+             * @param {HTMLElement} win - The file manager window element.
+             */
+            function setupFileManager(win) {
+                const sidebar = win.querySelector('.file-manager-sidebar');
+                const main = win.querySelector('.file-manager-main');
+                win.currentDir = 'Desktop'; // Store current directory directly on the window instance
+
+                // Variables to track the context of the right-click
+                let rightClickedItem = null; // Stores the HTML element that was right-clicked
+                let rightClickedType = null; // 'file', 'directory', or 'empty' (for main area)
+                let rightClickedName = null; // The name of the file or directory
+
+                /**
+                 * Renders the sidebar and main file view for the file manager.
+                 * @param {HTMLElement} sidebarEl - The sidebar element.
+                 * @param {HTMLElement} mainEl - The main content element.
+                 * @param {string} dirName - The directory to render files from.
+                 */
+                function setupFileManagerDisplay(sidebarEl, mainEl, dirName) {
+                    sidebarEl.innerHTML = ''; // Clear existing sidebar content
+                    for (const dir in fileSystem) {
+                        const dirEl = document.createElement('div');
+                        dirEl.classList.add('dir-item', 'cursor-pointer', 'p-2', 'rounded', 'hover:bg-slate-700');
+                        dirEl.setAttribute('data-dir', dir);
+                        dirEl.textContent = dir;
+                        if (dir === dirName) {
+                            dirEl.classList.add('font-bold', 'bg-slate-600');
+                            dirEl.classList.remove('hover:bg-slate-700');
+                        }
+                        sidebarEl.appendChild(dirEl);
+                    }
+
+                    mainEl.innerHTML = ''; // Clear current file list
+                    const files = fileSystem[dirName];
+
+                    if (!files || files.length === 0) {
+                        mainEl.innerHTML = '<div class="text-gray-400 italic">This folder is empty.</div>';
+                        return;
+                    }
+
+                    files.forEach(item => { // Changed from 'file' to 'item' to represent both files and nested directories
+                        // Determine if it's a file or a nested directory
+                        const isDirectory = fileSystem.hasOwnProperty(item) && Array.isArray(fileSystem[item]);
+
+                        let icon = '';
+                        if (isDirectory) {
+                             icon = `<svg xmlns="http://www.w3.org/2000/svg" class="inline-block mr-2 text-yellow-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>`;
+                        } else if (item.endsWith('.txt')) {
+                            icon = `<svg xmlns="http://www.w3.org/2000/svg" class="inline-block mr-2 text-blue-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>`;
+                        } else if (item.endsWith('.png') || item.endsWith('.jpg') || item.endsWith('.gif')) {
+                            icon = `<svg xmlns="http://www.w3.org/2000/svg" class="inline-block mr-2 text-pink-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>`;
+                        } else if (item.endsWith('.docx') || item.endsWith('.pdf') || item.endsWith('.xlsx')) {
+                             icon = `<svg xmlns="http://www.w3.org/2000/svg" class="inline-block mr-2 text-purple-300" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
+                        } else {
+                            icon = `<svg xmlns="http://www.w3.org/2000/svg" class="inline-block mr-2 text-gray-400" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>`;
+                        }
+                        const itemEl = document.createElement('div');
+                        itemEl.classList.add('file-item', 'p-1', 'flex', 'items-center', 'cursor-pointer', 'hover:bg-slate-700', 'rounded');
+                        itemEl.innerHTML = `${icon} ${item}`;
+                        itemEl.setAttribute('data-name', item); // Use data-name for both files and directories
+                        itemEl.setAttribute('data-type', isDirectory ? 'directory' : 'file');
+                        mainEl.appendChild(itemEl);
+                    });
+                }
+
+                sidebar.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('dir-item')) {
+                        win.currentDir = e.target.dataset.dir; // Update currentDir on the window instance
+                        setupFileManagerDisplay(sidebar, main, win.currentDir);
+                    }
+                });
+
+                // Handle opening text editor for .txt files
+                main.addEventListener('dblclick', (e) => {
+                    const targetEl = e.target.closest('[data-name]');
+                    const name = targetEl?.dataset.name;
+                    const type = targetEl?.dataset.type;
+
+                    if (name && type === 'file' && name.endsWith('.txt')) {
+                        let editorWin = openWindows['editor'];
+                        if (!editorWin) {
+                            editorWin = createWindow('editor', 'Text Editor', textEditorContent);
+                        }
+                        bringToFront(editorWin);
+                        setupTextEditorForFile(editorWin, win.currentDir, name); // Pass dir and filename
+                    } else if (name && type === 'directory') {
+                        win.currentDir = name;
+                        setupFileManagerDisplay(sidebar, main, win.currentDir);
+                    }
+                });
+
+                // Context Menu Logic
+                main.addEventListener('contextmenu', (e) => {
+                    e.preventDefault(); // Prevent default browser context menu
+                    hideContextMenu(); // Hide any existing menu
+
+                    const targetEl = e.target.closest('[data-name]');
+                    if (targetEl) {
+                        rightClickedItem = targetEl;
+                        rightClickedName = targetEl.dataset.name;
+                        rightClickedType = targetEl.dataset.type;
+                    } else {
+                        // Clicked on empty space in file manager
+                        rightClickedItem = null;
+                        rightClickedName = null;
+                        rightClickedType = 'empty';
+                    }
+                    showContextMenu(e.clientX, e.clientY);
+                });
+
+                // Hide context menu on any click outside it
+                document.addEventListener('click', (e) => {
+                    if (!fileContextMenu.contains(e.target)) {
+                        hideContextMenu();
+                    }
+                });
+
+                function showContextMenu(x, y) {
+                    fileContextMenu.innerHTML = ''; // Clear previous menu items
+
+                    if (rightClickedType === 'empty') {
+                        const newFileItem = document.createElement('div');
+                        newFileItem.classList.add('context-menu-item');
+                        newFileItem.textContent = 'New Text File';
+                        newFileItem.addEventListener('click', createNewTextFile);
+                        fileContextMenu.appendChild(newFileItem);
+                    } else if (rightClickedType === 'file' || rightClickedType === 'directory') {
+                        if (rightClickedType === 'file' && rightClickedName.endsWith('.txt')) {
+                            const openItem = document.createElement('div');
+                            openItem.classList.add('context-menu-item');
+                            openItem.textContent = 'Open';
+                            openItem.addEventListener('click', () => {
+                                let editorWin = openWindows['editor'];
+                                if (!editorWin) {
+                                    editorWin = createWindow('editor', 'Text Editor', textEditorContent);
+                                }
+                                bringToFront(editorWin);
+                                setupTextEditorForFile(editorWin, win.currentDir, rightClickedName);
+                                hideContextMenu();
+                            });
+                            fileContextMenu.appendChild(openItem);
+                        }
+
+                        const renameItem = document.createElement('div');
+                        renameItem.classList.add('context-menu-item');
+                        renameItem.textContent = 'Rename';
+                        renameItem.addEventListener('click', () => {
+                            const newName = prompt(`Rename ${rightClickedName} to:`);
+                            if (newName && newName.trim() && newName !== rightClickedName) {
+                                renameFileOrDirectory(rightClickedType, win.currentDir, rightClickedName, newName);
+                            }
+                            hideContextMenu();
+                        });
+                        fileContextMenu.appendChild(renameItem);
+
+                        const deleteItem = document.createElement('div');
+                        deleteItem.classList.add('context-menu-item');
+                        deleteItem.textContent = 'Delete';
+                        deleteItem.addEventListener('click', () => {
+                            if (confirm(`Are you sure you want to delete '${rightClickedName}'?`)) {
+                                deleteFileOrDirectory(rightClickedType, win.currentDir, rightClickedName);
+                            }
+                            hideContextMenu();
+                        });
+                        fileContextMenu.appendChild(deleteItem);
+                    }
+
+                    if (fileContextMenu.children.length > 0) {
+                        fileContextMenu.style.left = `${x}px`;
+                        fileContextMenu.style.top = `${y}px`;
+                        fileContextMenu.style.display = 'block';
+                    } else {
+                        hideContextMenu();
+                    }
+                }
+
+                function hideContextMenu() {
+                    fileContextMenu.style.display = 'none';
+                    rightClickedItem = null;
+                    rightClickedName = null;
+                    rightClickedType = null;
+                }
+
+                // Helper functions for context menu actions
+                function createNewTextFile() {
+                    const newFileName = prompt('Enter new text file name (e.g., my_notes.txt):');
+                    if (newFileName && newFileName.trim()) {
+                        if (!newFileName.endsWith('.txt')) {
+                            alert('Text files must end with .txt');
+                            return;
+                        }
+                        if (fileSystem[win.currentDir] && fileSystem[win.currentDir].includes(newFileName)) {
+                            alert(`File '${newFileName}' already exists in ${win.currentDir}.`);
+                            return;
+                        }
+
+                        if (!fileSystem[win.currentDir]) {
+                            fileSystem[win.currentDir] = [];
+                        }
+                        fileSystem[win.currentDir].push(newFileName);
+                        localStorage.setItem(LS_FILE_CONTENT_PREFIX + newFileName, ''); // Create empty content
+                        saveFileSystem();
+                        alert(`'${newFileName}' created in ${win.currentDir}.`);
+                    }
+                }
+
+                function renameFileOrDirectory(type, parentDir, oldName, newName) {
+                    if (type === 'file') {
+                        if (fileSystem[parentDir] && fileSystem[parentDir].includes(newName)) {
+                            alert(`A file named '${newName}' already exists in ${parentDir}.`);
+                            return;
+                        }
+                        const index = fileSystem[parentDir].indexOf(oldName);
+                        if (index !== -1) {
+                            fileSystem[parentDir][index] = newName;
+                            // Rename content in local storage
+                            const oldContent = localStorage.getItem(LS_FILE_CONTENT_PREFIX + oldName);
+                            if (oldContent !== null) {
+                                localStorage.setItem(LS_FILE_CONTENT_PREFIX + newName, oldContent);
+                                localStorage.removeItem(LS_FILE_CONTENT_PREFIX + oldName);
+                            }
+                            saveFileSystem();
+                            alert(`'${oldName}' renamed to '${newName}'.`);
+                        }
+                    } else if (type === 'directory') {
+                        if (fileSystem.hasOwnProperty(newName)) {
+                            alert(`A directory named '${newName}' already exists.`);
+                            return;
+                        }
+                        // Create new array for new directory, copy old contents
+                        fileSystem[newName] = fileSystem[oldName];
+                        delete fileSystem[oldName];
+                        // If the current open directory is the one being renamed, update it
+                        if (win.currentDir === oldName) {
+                            win.currentDir = newName;
+                        }
+                        saveFileSystem();
+                        alert(`Directory '${oldName}' renamed to '${newName}'.`);
+                    }
+                }
+
+                function deleteFileOrDirectory(type, parentDir, name) {
+                    if (type === 'file') {
+                        if (fileSystem[parentDir]) {
+                            fileSystem[parentDir] = fileSystem[parentDir].filter(item => item !== name);
+                            localStorage.removeItem(LS_FILE_CONTENT_PREFIX + name); // Remove content
+                            saveFileSystem();
+                            alert(`'${name}' deleted from ${parentDir}.`);
+                        }
+                    } else if (type === 'directory') {
+                        if (fileSystem.hasOwnProperty(name) && fileSystem[name].length === 0) {
+                            delete fileSystem[name];
+                            // If the current directory is the one being deleted, revert to Desktop
+                            if (win.currentDir === name) {
+                                win.currentDir = 'Desktop';
+                            }
+                            saveFileSystem();
+                            alert(`Directory '${name}' deleted.`);
+                        } else {
+                            alert(`Cannot delete non-empty directory: '${name}'.`);
+                        }
+                    }
+                }
+
+                // Initial render when file manager opens
+                setupFileManagerDisplay(sidebar, main, win.currentDir);
+            }
+
+            // 4. Text Editor Application
+            const textEditorContent = `
+                <div class="flex flex-col h-full">
+                    <div class="flex items-center p-2 bg-slate-700 rounded-t-lg flex-shrink-0 border-b border-slate-600 gap-2">
+                        <button class="text-editor-new px-3 py-1 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium transition-colors">New</button>
+                        <button class="text-editor-open px-3 py-1 bg-green-600 hover:bg-green-700 rounded-md text-sm font-medium transition-colors">Open</button>
+                        <button class="text-editor-save px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded-md text-sm font-medium transition-colors">Save</button>
+                        <span class="text-editor-filename text-sm ml-auto text-gray-300">Untitled.txt</span>
+                    </div>
+                    <textarea class="text-editor-textarea p-3 flex-grow"></textarea>
+                    <div class="text-xs text-gray-400 p-2 flex-shrink-0">Enter file name to open/save. Files are saved in Desktop.</div>
+                </div>
+            `;
+
+            /**
+             * Sets up the functionality for the Text Editor application.
+             * @param {HTMLElement} win - The text editor window element.
+             */
+            function setupTextEditor(win) {
+                const newBtn = win.querySelector('.text-editor-new');
+                const openBtn = win.querySelector('.text-editor-open');
+                const saveBtn = win.querySelector('.text-editor-save');
+                const textarea = win.querySelector('.text-editor-textarea');
+                const filenameDisplay = win.querySelector('.text-editor-filename');
+
+                // Attach file state to the window instance
+                win.currentFileName = 'Untitled.txt';
+                win.currentFilePath = '';
+                win.currentFileDir = 'Desktop'; // Default directory for new files
+
+                // Helper to update filename display
+                const updateFilenameDisplay = () => {
+                    filenameDisplay.textContent = win.currentFileName;
+                    win.querySelector('.window-title').textContent = `Text Editor - ${win.currentFileName}`;
+                };
+
+                // Function to load content into the editor
+                const loadFileContent = (fileName, dir) => {
+                    win.currentFileName = fileName;
+                    win.currentFileDir = dir;
+                    win.currentFilePath = LS_FILE_CONTENT_PREFIX + fileName;
+                    const content = localStorage.getItem(win.currentFilePath);
+                    textarea.value = content !== null ? content : '';
+                    updateFilenameDisplay();
+                };
+
+                // Function to save content from the editor
+                const saveFileContent = () => {
+                    // If it's a new "Untitled" file or if the current filename is empty
+                    if (win.currentFileName === 'Untitled.txt' || !win.currentFileName) {
+                        const newName = prompt('Enter a file name (e.g., mydocument.txt):');
+                        if (newName && newName.trim()) {
+                            if (!newName.endsWith('.txt')) {
+                                alert('Please save text files with a .txt extension.');
+                                return;
+                            }
+                            win.currentFileName = newName;
+                            // Add to Desktop if it's a new file and not already there
+                            if (!fileSystem['Desktop'].includes(win.currentFileName)) {
+                                fileSystem['Desktop'].push(win.currentFileName);
+                            }
+                        } else {
+                            alert('Save cancelled.');
+                            return;
+                        }
+                    }
+
+                    win.currentFilePath = LS_FILE_CONTENT_PREFIX + win.currentFileName;
+                    localStorage.setItem(win.currentFilePath, textarea.value);
+                    saveFileSystem(); // Save the updated fileSystem and refresh FM
+                    alert(`'${win.currentFileName}' saved successfully.`);
+                    updateFilenameDisplay();
+                };
+
+                newBtn.addEventListener('click', () => {
+                    textarea.value = '';
+                    win.currentFileName = 'Untitled.txt';
+                    win.currentFilePath = '';
+                    updateFilenameDisplay();
+                });
+
+                openBtn.addEventListener('click', () => {
+                    const fileNameToOpen = prompt('Enter file name to open (e.g., Welcome.txt):');
+                    if (fileNameToOpen && fileNameToOpen.trim()) {
+                        let foundInDir = null;
+                        for (const dir in fileSystem) {
+                            if (Array.isArray(fileSystem[dir]) && fileSystem[dir].includes(fileNameToOpen)) {
+                                foundInDir = dir;
+                                break;
+                            }
+                        }
+                        if (foundInDir) {
+                            loadFileContent(fileNameToOpen, foundInDir);
+                        } else {
+                            alert(`File '${fileNameToOpen}' not found in known directories.`);
+                            textarea.value = ''; // Clear editor if not found
+                            win.currentFileName = 'Untitled.txt';
+                            win.currentFilePath = '';
+                            updateFilenameDisplay();
+                        }
+                    } else {
+                        // User cancelled, do nothing
+                    }
+                });
+
+                saveBtn.addEventListener('click', saveFileContent);
+
+                // Initial setup for the editor, if it's just opened without a specific file
+                updateFilenameDisplay();
+            }
+
+            // Function to load a specific file into the text editor, used by File Manager
+            function setupTextEditorForFile(editorWin, dir, fileName) {
+                const textarea = editorWin.querySelector('.text-editor-textarea');
+                const filenameDisplay = editorWin.querySelector('.text-editor-filename');
+                editorWin.currentFileName = fileName;
+                editorWin.currentFileDir = dir;
+                editorWin.currentFilePath = LS_FILE_CONTENT_PREFIX + fileName; // Ensure this prefix is used
+                const content = localStorage.getItem(editorWin.currentFilePath);
+                textarea.value = content !== null ? content : '';
+                filenameDisplay.textContent = editorWin.currentFileName;
+                editorWin.querySelector('.window-title').textContent = `Text Editor - ${editorWin.currentFileName}`;
+            }
+
+
+            // 5. Calculator Application
+            const calculatorContent = `
+                <div class="calculator-grid">
+                    <div class="calculator-display" id="calc-display">0</div>
+                    <button class="calculator-button clear" data-action="clear">AC</button>
+                    <button class="calculator-button operator" data-action="negate">+/-</button>
+                    <button class="calculator-button operator" data-action="percent">%</button>
+                    <button class="calculator-button operator" data-action="divide">/</button>
+                    <button class="calculator-button" data-value="7">7</button>
+                    <button class="calculator-button" data-value="8">8</button>
+                    <button class="calculator-button" data-value="9">9</button>
+                    <button class="calculator-button operator" data-action="multiply">*</button>
+                    <button class="calculator-button" data-value="4">4</button>
+                    <button class="calculator-button" data-value="5">5</button>
+                    <button class="calculator-button" data-value="6">6</button>
+                    <button class="calculator-button operator" data-action="subtract">-</button>
+                    <button class="calculator-button" data-value="1">1</button>
+                    <button class="calculator-button" data-value="2">2</button>
+                    <button class="calculator-button" data-value="3">3</button>
+                    <button class="calculator-button operator" data-action="add">+</button>
+                    <button class="calculator-button" data-value="0" style="grid-column: span 2;">0</button>
+                    <button class="calculator-button" data-value=".">.</button>
+                    <button class="calculator-button equals" data-action="equals">=</button>
+                </div>
+            `;
+
+            /**
+             * Sets up the functionality for the Calculator application.
+             * @param {HTMLElement} win - The calculator window element.
+             */
+            function setupCalculator(win) {
+                const display = win.querySelector('#calc-display');
+                const buttons = win.querySelectorAll('.calculator-button');
+
+                let currentInput = '0';
+                let previousInput = '';
+                let operator = null;
+                let resetDisplay = false;
+
+                function updateDisplay() {
+                    display.textContent = currentInput;
+                }
+
+                function clear() {
+                    currentInput = '0';
+                    previousInput = '';
+                    operator = null;
+                    resetDisplay = false;
+                    updateDisplay();
+                }
+
+                function appendNumber(number) {
+                    if (resetDisplay) {
+                        currentInput = number;
+                        resetDisplay = false;
+                    } else if (currentInput === '0' && number !== '.') {
+                        if (number === '.') { // allow leading dot for numbers like .5
+                            currentInput = '0.';
+                        } else {
+                            currentInput = number;
+                        }
+                    } else if (number === '.' && currentInput.includes('.')) {
+                        return; // Prevent multiple decimal points
+                    }
+                    else {
+                        currentInput += number;
+                    }
+                    updateDisplay();
+                }
+
+                function chooseOperator(nextOperator) {
+                    if (currentInput === '' || currentInput === '-') return; // No input to operate on or just a minus sign
+
+                    if (previousInput !== '' && operator !== null) {
+                        calculate(); // Perform previous calculation if chaining operations
+                    }
+                    previousInput = currentInput;
+                    operator = nextOperator;
+                    currentInput = '0'; // Clear current input for next number
+                    resetDisplay = true; // Next number should overwrite display
+                }
+
+                function calculate() {
+                    let result;
+                    const prev = parseFloat(previousInput);
+                    const current = parseFloat(currentInput);
+
+                    if (isNaN(prev) || isNaN(current)) {
+                        display.textContent = 'Error';
+                        return;
+                    }
+
+                    switch (operator) {
+                        case '+': result = prev + current; break;
+                        case '-': result = prev - current; break;
+                        case '*': result = prev * current; break;
+                        case '/':
+                            if (current === 0) {
+                                display.textContent = 'Error: Div by zero';
+                                currentInput = '0';
+                                previousInput = '';
+                                operator = null;
+                                resetDisplay = true;
+                                return;
+                            }
+                            result = prev / current;
+                            break;
+                        default: return; // No operator chosen
+                    }
+                    currentInput = result.toString();
+                    operator = null;
+                    previousInput = '';
+                    resetDisplay = true; // Result should be cleared if new number is typed
+                    updateDisplay();
+                }
+
+                function handleAction(action) {
+                    switch (action) {
+                        case 'clear':
+                            clear();
+                            break;
+                        case 'negate':
+                            currentInput = (parseFloat(currentInput) * -1).toString();
+                            updateDisplay();
+                            break;
+                        case 'percent':
+                            currentInput = (parseFloat(currentInput) / 100).toString();
+                            updateDisplay();
+                            break;
+                        case 'equals':
+                            calculate();
+                            break;
+                        case 'add':
+                        case 'subtract':
+                        case 'multiply':
+                        case 'divide':
+                            chooseOperator(action === 'add' ? '+' : action === 'subtract' ? '-' : action === 'multiply' ? '*' : '/');
+                            break;
+                    }
+                }
+
+                buttons.forEach(button => {
+                    button.addEventListener('click', () => {
+                        const value = button.dataset.value;
+                        const action = button.dataset.action;
+
+                        if (value !== undefined) {
+                            appendNumber(value);
+                        } else if (action !== undefined) {
+                            handleAction(action);
+                        }
+                    });
+                });
+
+                // Initial display
+                updateDisplay();
+            }
+
+            // 6. Settings Application
+            const settingsContent = `
+                <div class="settings-content">
+                    <h2 class="text-xl font-bold mb-4">Amin OS Settings</h2>
+
+                    <div class="settings-section">
+                        <h3 class="text-lg font-semibold mb-2">Personalization</h3>
+                        <label for="wallpaper-url" class="block text-gray-300 mb-1">Desktop Wallpaper URL:</label>
+                        <input type="text" id="wallpaper-url" class="settings-input mb-2" placeholder="Enter image URL (e.g., https://example.com/image.jpg)">
+                        <button id="apply-wallpaper-btn" class="settings-button">Apply Wallpaper</button>
+                    </div>
+
+                    <!-- Add more settings sections here (e.g., display, sound, etc.) -->
+                </div>
+            `;
+
+            /**
+             * Sets up the functionality for the Settings application.
+             * @param {HTMLElement} win - The settings window element.
+             */
+            function setupSettings(win) {
+                const wallpaperUrlInput = win.querySelector('#wallpaper-url');
+                const applyWallpaperBtn = win.querySelector('#apply-wallpaper-btn');
+
+                // Set input value to current wallpaper
+                wallpaperUrlInput.value = currentWallpaper;
+
+                applyWallpaperBtn.addEventListener('click', () => {
+                    const newWallpaperUrl = wallpaperUrlInput.value.trim();
+                    // Basic URL validation
+                    const urlRegex = /^(https?:\/\/[^\s$.?#].[^\s]*)$/i;
+                    if (newWallpaperUrl && !urlRegex.test(newWallpaperUrl)) {
+                        alert('Please enter a valid URL (starting with http:// or https://).');
+                        return;
+                    }
+
+                    if (newWallpaperUrl) {
+                        desktop.style.setProperty('--desktop-wallpaper', `url('${newWallpaperUrl}')`);
+                        localStorage.setItem(LS_WALLPAPER_KEY, newWallpaperUrl);
+                        currentWallpaper = newWallpaperUrl; // Update global variable
+                        alert('Wallpaper applied successfully!'); // Simple notification
+                    } else {
+                        // Revert to default if input is empty
+                        desktop.style.removeProperty('--desktop-wallpaper');
+                        localStorage.removeItem(LS_WALLPAPER_KEY);
+                        currentWallpaper = '';
+                        alert('Wallpaper reset to default.');
+                    }
+                });
+            }
+
+        });
+    </script>
+</body>
+</html>
