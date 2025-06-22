@@ -144,6 +144,7 @@
         /* File Manager styles */
         .file-manager-content {
             display: flex;
+            flex-direction: row; /* Always row for desktop */
             height: 100%;
         }
         .file-manager-sidebar {
@@ -152,6 +153,8 @@
             border-right: 1px solid #4a5568;
             padding: 0.75rem; /* Increased padding */
             background-color: rgba(30, 41, 59, 0.7); /* Slightly darker sidebar */
+            max-height: unset; /* No max height constraint */
+            overflow-y: auto; /* Enable scrolling for directories */
         }
         .file-manager-main {
             flex-grow: 1;
@@ -190,11 +193,38 @@
             flex-direction: column;
             height: 100%;
         }
-        .browser-iframe {
+        .browser-ai-content {
             flex-grow: 1;
-            border: none;
-            background-color: white; /* Background for the iframe content area */
-            border-radius: 0.25rem; /* Small radius for iframe */
+            background-color: #1a202c; /* Dark background for AI content */
+            border-radius: 0.375rem;
+            color: #e2e8f0;
+            padding: 1rem;
+            line-height: 1.6;
+            overflow-y: auto; /* Enable scrolling for content */
+        }
+        .browser-ai-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #63b3ed; /* Light blue for headings */
+        }
+        .browser-ai-content ul {
+            list-style: disc;
+            margin-left: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .browser-ai-content a {
+            color: #4299e1; /* Blue for links */
+            text-decoration: underline;
+        }
+        .browser-ai-content p {
+            margin-bottom: 1rem;
+        }
+        .browser-ai-content .loading-indicator {
+            text-align: center;
+            padding: 2rem;
+            color: #a0aec0;
+            font-style: italic;
         }
 
         /* Text Editor specific styles */
@@ -381,10 +411,10 @@
             </button>
             <button id="taskbar-files-icon" class="app-icon p-3 rounded-xl hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="File Explorer">
                 <!-- File Explorer Icon (Folder) -->
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 = 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
             </button>
             <button id="taskbar-editor-icon" class="app-icon p-3 rounded-xl hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="Text Editor">
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
             </button>
             <button id="taskbar-calc-icon" class="app-icon p-3 rounded-xl hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500" title="Calculator">
                 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="16" y2="10"></line><line x1="8" y1="14" x2="16" y2="14"></line><line x1="8" y1="18" x2="16" y2="18"></line></svg>
@@ -526,10 +556,38 @@
                 windowEl.querySelector('.window-title').textContent = title; // Set window title
                 windowEl.querySelector('.window-content').innerHTML = content; // Insert app-specific content
 
-                // Calculate initial position to stack new windows slightly offset
+                // Calculate initial position to center windows, then apply a small offset for stacking
+                const desktopWidth = desktop.offsetWidth;
+                const desktopHeight = desktop.offsetHeight;
+                const windowWidth = 640; // Default width
+                const windowHeight = 480; // Default height
+
+                // Calculate center position
+                let top = (desktopHeight - windowHeight) / 2;
+                let left = (desktopWidth - windowWidth) / 2;
+
+                // Apply stacking offset
                 const existingWindows = Object.keys(openWindows).length;
-                windowEl.style.top = `${50 + (existingWindows % 5) * 30}px`; // Limit stacking overlap
-                windowEl.style.left = `${100 + (existingWindows % 5) * 30}px`; // Limit stacking overlap
+                const offset = (existingWindows % 5) * 30; // Max 5 offsets before repeating
+                top += offset;
+                left += offset;
+
+                // Ensure initial position is within bounds, adjusting for taskbar
+                const taskbarHeight = taskbar.offsetHeight;
+                if (top + windowHeight > desktopHeight - taskbarHeight) {
+                    top = desktopHeight - taskbarHeight - windowHeight - 10; // 10px buffer from bottom
+                }
+                if (left + windowWidth > desktopWidth) {
+                    left = desktopWidth - windowWidth - 10; // 10px buffer from right
+                }
+                if (top < 0) top = 10; // 10px buffer from top
+                if (left < 0) left = 10; // 10px buffer from left
+
+
+                windowEl.style.top = `${top}px`;
+                windowEl.style.left = `${left}px`;
+                windowEl.style.width = `${windowWidth}px`; // Explicitly set initial width
+                windowEl.style.height = `${windowHeight}px`; // Explicitly set initial height
 
                 desktop.appendChild(windowEl); // Add the new window to the desktop
                 openWindows[id] = windowEl; // Store reference to the window
@@ -664,11 +722,12 @@
             const browserContent = `
                 <div class="browser-content">
                     <div class="flex items-center p-2 bg-slate-700 rounded-t-lg flex-shrink-0 border-b border-slate-600">
-                        <input type="text" class="browser-url flex-grow bg-slate-800 text-white p-2 rounded-md outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter URL or search Google">
+                        <input type="text" class="browser-url flex-grow bg-slate-800 text-white p-2 rounded-md outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter URL or search Gemini AI">
                         <button class="browser-go ml-3 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-md text-sm font-medium transition-colors">Go</button>
                     </div>
-                    <iframe class="browser-iframe mt-2"></iframe>
-                    <p class="text-xs text-gray-400 p-2 flex-shrink-0">Note: Searches open in a new tab. Some sites will not load directly in the frame due to security policies.</p>
+                    <div class="browser-ai-content mt-2 p-2 overflow-y-auto bg-slate-800 rounded-md text-sm leading-relaxed">
+                        <p class="text-center text-gray-400">Type a search query for Gemini AI or a full URL above.</p>
+                    </div>
                 </div>
             `;
 
@@ -679,35 +738,103 @@
             function setupBrowser(win) {
                 const urlInput = win.querySelector('.browser-url');
                 const goBtn = win.querySelector('.browser-go');
-                const iframe = win.querySelector('.browser-iframe');
+                const aiContentDiv = win.querySelector('.browser-ai-content');
+
+                const performSearch = async (query) => {
+                    aiContentDiv.innerHTML = '<p class="loading-indicator">Searching with Gemini AI...</p>'; // Show loading
+
+                    // Define the prompt and the desired JSON schema for the response
+                    const prompt = `Based on a search for "${query}", provide a summary as an array of concise sentences. Also, provide up to 5 relevant links as an array of objects, each with a 'title' and 'url' property.`;
+                    
+                    const payload = {
+                        contents: [{ role: "user", parts: [{ text: prompt }] }],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    "summarySentences": {
+                                        type: "ARRAY",
+                                        items: { type: "STRING" }
+                                    },
+                                    "links": {
+                                        type: "ARRAY",
+                                        items: {
+                                            type: "OBJECT",
+                                            properties: {
+                                                "title": { "type": "STRING" },
+                                                "url": { "type": "STRING" }
+                                            }
+                                        }
+                                    }
+                                },
+                                propertyOrdering: ["summarySentences", "links"] // Suggest order
+                            }
+                        }
+                    };
+
+                    const apiKey = "AIzaSyAxSHQki55u6W-mEvGqADkk-tVyDPcHRsM"; // Leave as empty string for Canvas to provide
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                    try {
+                        const response = await fetch(apiUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const result = await response.json();
+
+                        if (result.candidates && result.candidates.length > 0 &&
+                            result.candidates[0].content && result.candidates[0].content.parts &&
+                            result.candidates[0].content.parts.length > 0) {
+                            
+                            const jsonText = result.candidates[0].content.parts[0].text;
+                            const parsedData = JSON.parse(jsonText); // Parse the JSON string
+
+                            let formattedOutput = `<h3>Search Results for: "${query}"</h3>`;
+
+                            // Format summary sentences
+                            if (parsedData.summarySentences && parsedData.summarySentences.length > 0) {
+                                parsedData.summarySentences.forEach(sentence => {
+                                    formattedOutput += `<p>${sentence}</p>`;
+                                });
+                            } else {
+                                formattedOutput += `<p>No summary available.</p>`;
+                            }
+
+                            // Format links
+                            if (parsedData.links && parsedData.links.length > 0) {
+                                formattedOutput += `<h4>Relevant Links:</h4><ul>`;
+                                parsedData.links.forEach(link => {
+                                    formattedOutput += `<li><a href="${link.url}" target="_blank" class="text-blue-400 hover:text-blue-300">${link.title}</a></li>`;
+                                });
+                                formattedOutput += `</ul>`;
+                            } else {
+                                formattedOutput += `<p>No relevant links found.</p>`;
+                            }
+
+                            aiContentDiv.innerHTML = formattedOutput; // Inject formatted HTML
+                        } else {
+                            aiContentDiv.innerHTML = '<p class="text-center text-red-400">No structured results found or an error occurred with the AI. Please try a different query.</p>';
+                        }
+                    } catch (error) {
+                        console.error('Error calling Gemini API or parsing JSON:', error);
+                        aiContentDiv.innerHTML = '<p class="text-center text-red-400">Failed to connect to AI service or parse response. Please check your network and try again.</p>';
+                    }
+                };
 
                 const navigate = () => {
-                    let url = urlInput.value.trim();
-                    if (!url) return;
+                    let inputVal = urlInput.value.trim();
+                    if (!inputVal) return;
 
-                    let isSearch = false;
-                    // Check if it's a URL or a search term
-                    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                        if (url.includes('.') && !url.includes(' ')) {
-                            // Looks like a URL (e.g., example.com)
-                            url = 'https://' + url;
-                        } else {
-                            // It's a search term
-                            isSearch = true;
-                            // Use Google search, which will open in a new tab
-                            url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
-                        }
-                    }
-
-                    if (isSearch) {
-                        // Open search results in a new browser tab
-                        window.open(url, '_blank');
-                        // Clear the input and the iframe for a better user experience
-                        urlInput.value = '';
-                        iframe.src = 'about:blank'; // Clears the iframe content
+                    // Check if it's a URL (starts with http or https)
+                    if (inputVal.startsWith('http://') || inputVal.startsWith('https://')) {
+                        // Open external URLs in a new tab due to iframe security policies
+                        window.open(inputVal, '_blank');
+                        aiContentDiv.innerHTML = `<p class="text-center text-gray-400">Opening "${inputVal}" in a new tab...</p>`;
                     } else {
-                        // Try to load other websites in the iframe
-                        iframe.src = url;
+                        // Treat as a search query and use Gemini AI
+                        performSearch(inputVal);
                     }
                 };
 
@@ -715,6 +842,9 @@
                 urlInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') navigate();
                 });
+
+                // Initial clear on browser open
+                aiContentDiv.innerHTML = '<p class="text-center text-gray-400">Type a search query for Gemini AI or a full URL above.</p>';
             }
 
             // 2. Terminal Application
