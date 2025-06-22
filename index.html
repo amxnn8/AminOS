@@ -70,7 +70,7 @@
         /* Styles for draggable and resizable application windows */
         .app-window {
             min-height: 200px;
-            min-width: 350px; /* Adjusted below for mobile */
+            min-width: 350px;
             position: absolute; /* Allows dragging anywhere on the desktop */
             border-radius: 0.75rem; /* More rounded corners */
             box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1); /* Deeper shadow */
@@ -87,24 +87,6 @@
             /* Added for smoother dragging perception */
             will-change: top, left, width, height;
         }
-        /* Mobile adjustments for app windows */
-        @media (max-width: 768px) { /* Tailwind's 'md' breakpoint */
-            .app-window {
-                min-width: 95vw; /* Make windows almost full width on small screens */
-                min-height: calc(90vh - 56px); /* Adjust height for taskbar */
-                width: 95vw !important; /* Override inline style set by JS for initial positioning */
-                height: calc(90vh - 56px) !important;
-                top: 5vh !important; /* Center vertically with some offset */
-                left: 2.5vw !important; /* Center horizontally with some offset */
-                transform: none !important; /* Clear any transforms from initial centering */
-            }
-            .app-window.maximized { /* Ensure maximized still takes full screen */
-                min-width: 100vw;
-                width: 100% !important;
-                left: 0 !important;
-            }
-        }
-
 
         .window-header {
             cursor: grab; /* Indicates draggable area */
@@ -162,31 +144,14 @@
         /* File Manager styles */
         .file-manager-content {
             display: flex;
-            flex-direction: column; /* Default to column for mobile */
             height: 100%;
         }
-        @media (min-width: 768px) { /* On medium and larger screens, switch to row */
-            .file-manager-content {
-                flex-direction: row;
-            }
-        }
         .file-manager-sidebar {
-            width: 100%; /* Full width on mobile */
+            width: 180px; /* Wider sidebar */
             flex-shrink: 0;
-            border-right: none; /* No border on mobile */
-            border-bottom: 1px solid #4a5568; /* Add bottom border on mobile */
+            border-right: 1px solid #4a5568;
             padding: 0.75rem; /* Increased padding */
             background-color: rgba(30, 41, 59, 0.7); /* Slightly darker sidebar */
-            max-height: 30%; /* Limit height on mobile so main content is visible */
-            overflow-y: auto; /* Enable scrolling for directories on mobile */
-        }
-        @media (min-width: 768px) { /* On medium and larger screens */
-            .file-manager-sidebar {
-                width: 180px; /* Wider sidebar */
-                border-right: 1px solid #4a5568;
-                border-bottom: none; /* No bottom border on desktop */
-                max-height: unset; /* Remove max height constraint */
-            }
         }
         .file-manager-main {
             flex-grow: 1;
@@ -561,38 +526,10 @@
                 windowEl.querySelector('.window-title').textContent = title; // Set window title
                 windowEl.querySelector('.window-content').innerHTML = content; // Insert app-specific content
 
-                // Calculate initial position to center windows, then apply a small offset for stacking
-                const desktopWidth = desktop.offsetWidth;
-                const desktopHeight = desktop.offsetHeight;
-                const windowWidth = 640; // Default width
-                const windowHeight = 480; // Default height
-
-                // Calculate center position
-                let top = (desktopHeight - windowHeight) / 2;
-                let left = (desktopWidth - windowWidth) / 2;
-
-                // Apply stacking offset
+                // Calculate initial position to stack new windows slightly offset
                 const existingWindows = Object.keys(openWindows).length;
-                const offset = (existingWindows % 5) * 30; // Max 5 offsets before repeating
-                top += offset;
-                left += offset;
-
-                // Ensure initial position is within bounds, adjusting for taskbar
-                const taskbarHeight = taskbar.offsetHeight;
-                if (top + windowHeight > desktopHeight - taskbarHeight) {
-                    top = desktopHeight - taskbarHeight - windowHeight - 10; // 10px buffer from bottom
-                }
-                if (left + windowWidth > desktopWidth) {
-                    left = desktopWidth - windowWidth - 10; // 10px buffer from right
-                }
-                if (top < 0) top = 10; // 10px buffer from top
-                if (left < 0) left = 10; // 10px buffer from left
-
-
-                windowEl.style.top = `${top}px`;
-                windowEl.style.left = `${left}px`;
-                windowEl.style.width = `${windowWidth}px`; // Explicitly set initial width
-                windowEl.style.height = `${windowHeight}px`; // Explicitly set initial height
+                windowEl.style.top = `${50 + (existingWindows % 5) * 30}px`; // Limit stacking overlap
+                windowEl.style.left = `${100 + (existingWindows % 5) * 30}px`; // Limit stacking overlap
 
                 desktop.appendChild(windowEl); // Add the new window to the desktop
                 openWindows[id] = windowEl; // Store reference to the window
